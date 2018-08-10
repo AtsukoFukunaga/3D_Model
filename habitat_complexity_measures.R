@@ -2,7 +2,7 @@ library(raster)
 library(rgeos)
 library(ggplot2)
 
-ras <- raster("GitHub/DEM_processing/FFS_4185_DEM_1cm.tif")
+ras <- raster("FFS_4185_DEM_1cm.tif")
 
 extent <- aggregate(ras, fac = 128, fun = mean, expand = FALSE, na.rm = FALSE)
 extent_uniform <- extent > -Inf
@@ -10,8 +10,10 @@ extent_polygon <- rasterToPolygons(extent_uniform, dissolve = TRUE)
 
 ras_clip <- mask(crop(ras, extent(extent_polygon)), extent_polygon)
 
-dat64 <- data.frame(fac = c(1, 2, 4, 8, 16, 32, 64), s_area = NA, area = NA)
-dat128 <- data.frame(fac = c(1, 2, 4, 8, 16, 32, 64, 128), s_area = NA, area = NA)
+dat64 <- data.frame(fac = c(1, 2, 4, 8, 16, 32, 64), s_area = NA, area = NA, 
+                    max_height = NA, min_height = NA, height_std = NA)
+dat128 <- data.frame(fac = c(1, 2, 4, 8, 16, 32, 64, 128), s_area = NA, area = NA, 
+                     max_height = NA, min_height = NA, height_std = NA)
 
 dat <- list(dat64, dat128)
 
@@ -25,6 +27,9 @@ for (j in 1:length(dat)) {
     reef_g <- as(reef, "SpatialGridDataFrame")
     dat[[j]]$s_area[i] <- surfaceArea(reef_g)
     dat[[j]]$area[i] <- sum(!is.na(reef_g@data)) * (dat[[j]]$fac[i] * 0.01) ^ 2
+    dat[[j]]$max_height[i] <- max(reef_g@data[[1]], na.rm = TRUE)
+    dat[[j]]$min_height[i] <- min(reef_g@data[[1]], na.rm = TRUE)
+    dat[[j]]$height_std[i] <- sd(reef_g@data[[1]], na.rm = TRUE)
   }
 }
 
@@ -46,7 +51,12 @@ d128 <- lm(log(s_area/area) ~ log(fac * 0.01), data = dat[[2]])
 slope128 <- coef(d128)[[2]]
 fd128 <- 2 - slope128
 
-fd64; fd128
-
 rugosity <- dat[[1]]$s_area[1]/dat[[1]]$area[1]
 rugosity
+
+max_h <- dat[[1]]$max_height[1]
+min_h <- dat[[1]]$min_height[1]
+diff_h <- max_h - min_h
+sd_h <- dat[[1]]$height_std[1]
+
+fd64; fd128; rugosity; max_h; min_h; diff_h; sd_h
