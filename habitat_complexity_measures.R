@@ -2,61 +2,235 @@ library(raster)
 library(rgeos)
 library(ggplot2)
 
-ras <- raster("FFS_4185_DEM_1cm.tif")
 
-extent <- aggregate(ras, fac = 128, fun = mean, expand = FALSE, na.rm = FALSE)
-extent_uniform <- extent > -Inf
-extent_polygon <- rasterToPolygons(extent_uniform, dissolve = TRUE)
-
-ras_clip <- mask(crop(ras, extent(extent_polygon)), extent_polygon)
-
-dat64 <- data.frame(fac = c(1, 2, 4, 8, 16, 32, 64), s_area = NA, area = NA, 
-                    max_height = NA, min_height = NA, height_std = NA)
-dat128 <- data.frame(fac = c(1, 2, 4, 8, 16, 32, 64, 128), s_area = NA, area = NA, 
-                     max_height = NA, min_height = NA, height_std = NA)
-
-dat <- list(dat64, dat128)
-
-for (j in 1:length(dat)) {
-  for (i in 1:nrow(dat[[j]])) {
-    if (dat[[j]]$fac[i] == 1) {
-        reef <- ras_clip
+########## terrain fucntion returns slope, aspect, curvature #########
+terrain_fun <- function(data, cell_size) {
+  d0 <- as.matrix(data)
+  da <-  cbind(matrix(NA, nrow = nrow(d0), ncol = 1), 
+               rbind(matrix(NA, nrow = 1, ncol = ncol(d0) - 1), 
+                     d0[1 : (nrow(d0) - 1), 1 : (ncol(d0) - 1)]))
+  db <- rbind(matrix(NA, nrow = 1, ncol = ncol(d0)), d0[1 : (nrow(d0) - 1), ])
+  dc <- cbind(rbind(matrix(NA, nrow = 1, ncol = ncol(d0) - 1), 
+                    d0[1 : (nrow(d0) - 1), 2 : ncol(d0)]),
+              matrix(NA, nrow = nrow(d0), ncol = 1))
+  dd <- cbind(matrix(NA, nrow = nrow(d0), ncol = 1), d0[, 1 : (ncol(d0) - 1)])
+  df <- cbind(d0[, 2 : ncol(d0)], matrix(NA, nrow = nrow(d0), ncol = 1))
+  dg <- cbind(matrix(NA, nrow = nrow(d0), ncol = 1), 
+              rbind(d0[2 : nrow(d0), 1 : (ncol(d0) - 1)], 
+                    matrix(NA, nrow = 1, ncol = ncol(d0) - 1)))
+  dh <- rbind(d0[2 : nrow(d0), ], matrix(NA, nrow = 1, ncol = ncol(d0)))
+  di <- cbind(rbind(d0[2 : nrow(d0), 2 : ncol(d0)], 
+                    matrix(NA, nrow = 1, ncol = (ncol(d0) - 1))), 
+              matrix(NA, nrow = nrow(d0), ncol = 1))
+  
+  ## slope
+  
+  x_rate <- ((dc + (2 * df) + di) - (da + (2 * dd) + dg)) / (8 * cell_size)
+  y_rate <- ((dg + (2 * dh) + di) - (da + (2 * db) + dc)) / (8 * cell_size)
+  
+  slope_degrees <- atan(sqrt(x_rate ^ 2 + y_rate ^ 2)) * 57.29578
+  mean_slope <- mean(slope_degrees, na.rm = TRUE)
+  
+  ## aspect
+  
+  x_rate_aspect <- ((dc + (2 * df) + di) - (da + (2 * dd) + dg)) / 8
+  y_rate_aspect <- ((dg + (2 * dh) + di) - (da + (2 * db) + dc)) / 8
+  
+  aspect <- 57.29578 * atan2(y_rate_aspect, (-1 * x_rate_aspect))
+  
+  aspect_conversion <- function(x) {
+    if (is.na(x)) {
+      cell <- NA
+    } else if (x < 90.0) {
+      cell <- 90.0 - x
     } else {
-        reef <- aggregate(ras_clip, fac = dat[[j]]$fac[i], fun = mean, expand = FALSE, na.rm = FALSE)
+      cell <- 450 - x
     }
-    reef_g <- as(reef, "SpatialGridDataFrame")
-    dat[[j]]$s_area[i] <- surfaceArea(reef_g)
-    dat[[j]]$area[i] <- sum(!is.na(reef_g@data)) * (dat[[j]]$fac[i] * 0.01) ^ 2
-    dat[[j]]$max_height[i] <- max(reef_g@data[[1]], na.rm = TRUE)
-    dat[[j]]$min_height[i] <- min(reef_g@data[[1]], na.rm = TRUE)
-    dat[[j]]$height_std[i] <- sd(reef_g@data[[1]], na.rm = TRUE)
+    return(cell)
   }
+  
+  aspect_conv <- apply(aspect, c(1, 2), aspect_conversion)
+  mean_aspect <- mean(aspect_conv, na.rm = TRUE)
+  
+  # convert aspect_conv to radians
+  aspect_rad <- aspect_conv * (pi / 180)
+  mean_sin <- mean(sin(aspect_rad), na.rm = TRUE)
+  mean_cos <- mean(cos(aspect_rad), na.rm = TRUE)
+  mean_aspect_degree <- 57.29578 * atan2(mean_sin, mean_cos)
+  mean_aspect_2 <- mean_aspect_degree %% 360
+  
+  ## curvature
+  
+  coefD <- ((dd + df) / 2 - d0) / (cell_size ^ 2)
+  coefE <- ((db + dh) / 2 - d0) / (cell_size ^ 2)
+  coefF <- (dc + dg -da - di) / (4 * (cell_size ^ 2))
+  coefG = (df - dd) / 2 * cell_size
+  coefH = (db - dh) / 2 * cell_size
+  
+  curvature <- 2 * (coefD + coefE)
+  mean_curvature <- mean(curvature, na.rm = TRUE)
+  
+  prof_curv <- -2 * ((coefD * coefG ^ 2 + coefE * coefH ^ 2 + coefF * coefG * coefH) / 
+                       (coefG ^ 2 + coefH ^ 2))
+  mean_prof_curv <- mean(prof_curv, na.rm = TRUE)
+  
+  plan_curv <- 2 * ((coefD * coefH ^ 2 + coefE * coefG ^ 2 - coefF * coefG * coefH) / 
+                      (coefG ^ 2 + coefH ^ 2))
+  mean_plan_curv <- mean(plan_curv, na.rm = TRUE)
+  
+  
+  ## create a list
+  
+  terrain_list <- list(mean_slope, mean_aspect, mean_aspect_2, mean_curvature, 
+                       mean_prof_curv, mean_plan_curv)
+  names(terrain_list) <- c("mean_slope", "mean_aspect", "circular_mean_aspect", 
+                           "mean_curvature", "mean_profile_curvature", "mean_plan_curvature")
+  return(terrain_list)
+  
 }
 
-p64 <- ggplot(dat[[1]], aes(x = log(fac * 0.01), y = log(s_area))) +
-  geom_point() +
-  geom_smooth(method = "lm", se = F)
 
-p128 <- ggplot(dat[[2]], aes(x = log(fac * 0.01), y = log(s_area))) +
-  geom_point() +
-  geom_smooth(method = "lm", se = F)
+########## process files #########
 
-p64; p128
+file_path <- ""
+file_names <- c("FFS_4185")
+file_suf <- "_DEM_1cm.tif"
 
-d64 <- lm(log(s_area/area) ~ log(fac * 0.01), data = dat[[1]])
-slope64 <- coef(d64)[[2]]
-fd64 <- 2 - slope64
+files <- paste(file_path, file_names, file_suf, sep = "")
+resolution <- 0.01  # DEM resolution = 1cm
+                
+hab_data <- data.frame(file_name = character(0), fd64 = numeric(0), fd128 = numeric(0),
+                       planerS64 = numeric(0), planerS128 = numeric(0),
+                       rugosity = numeric(0), max_h = numeric(0), min_h = numeric(0),
+                       diff_h = numeric(0), sd_h = numeric(0),
+                       mean_slope = numeric(0), mean_aspect = numeric(0), 
+                       circular_mean_aspect = numeric(0), 
+                       mean_curvature = numeric(0), 
+                       mean_profile_curvature = numeric(0), 
+                       mean_plan_curvature = numeric(0))
 
-d128 <- lm(log(s_area/area) ~ log(fac * 0.01), data = dat[[2]])
-slope128 <- coef(d128)[[2]]
-fd128 <- 2 - slope128
+for (k in 1:length(files)) {
+  ras <- raster(files[k])
+  
+  extent64 <- aggregate(ras, fac = 64, fun = mean, expand = FALSE, na.rm = FALSE)
+  extent64_uniform <- extent64 > -Inf
+  extent64_polygon <- rasterToPolygons(extent64_uniform, dissolve = TRUE)
+  
+  extent128 <- aggregate(ras, fac = 128, fun = mean, expand = FALSE, na.rm = FALSE)
+  extent128_uniform <- extent128 > -Inf
+  extent128_polygon <- rasterToPolygons(extent128_uniform, dissolve = TRUE)
+  
+  ras_clip_64 <- mask(crop(ras, extent(extent64_polygon)), extent64_polygon)
+  ras_clip_128 <- mask(crop(ras, extent(extent128_polygon)), extent128_polygon)
+  
+  dat64 <- data.frame(fac = c(1, 2, 4, 8, 16, 32, 64), s_area = NA, area = NA, 
+                      max_height = NA, min_height = NA, height_std = NA,
+                      mean_slope = NA, mean_aspect = NA, circular_mean_aspect = NA, 
+                      mean_curvature = NA, mean_profile_curvature = NA, mean_plan_curvature = NA)
+  dat128 <- data.frame(fac = c(1, 2, 4, 8, 16, 32, 64, 128), s_area = NA, area = NA, 
+                       max_height = NA, min_height = NA, height_std = NA,
+                       mean_slope = NA, mean_aspect = NA, circular_mean_aspect = NA, 
+                       mean_curvature = NA, mean_profile_curvature = NA, mean_plan_curvature = NA)
+  
+  dat <- list(dat64, dat128)
+  
+  
+  for (j in 1:length(dat)) {
+  
+    if (j == 1) {
+      for (i in 1:nrow(dat[[j]])) {
+        if (dat[[j]]$fac[i] == 1) {
+          reef <- ras_clip_64
+        } else {
+          reef <- aggregate(ras_clip_64, fac = dat[[j]]$fac[i], fun = mean, expand = FALSE, na.rm = FALSE)
+        }
+        reef_g <- as(reef, "SpatialGridDataFrame")
+        terrain_res <- terrain_fun(reef, resolution)
+        dat[[j]]$s_area[i] <- surfaceArea(reef_g)
+        dat[[j]]$area[i] <- sum(!is.na(reef_g@data)) * (dat[[j]]$fac[i] * 0.01) ^ 2
+        dat[[j]]$max_height[i] <- max(reef_g@data[[1]], na.rm = TRUE)
+        dat[[j]]$min_height[i] <- min(reef_g@data[[1]], na.rm = TRUE)
+        dat[[j]]$height_std[i] <- sd(reef_g@data[[1]], na.rm = TRUE)
+        dat[[j]]$mean_slope[i] <- terrain_res$mean_slope
+        dat[[j]]$mean_aspect[i] <- terrain_res$mean_aspect
+        dat[[j]]$circular_mean_aspect[i] <- terrain_res$circular_mean_aspect
+        dat[[j]]$mean_curvature[i] <- terrain_res$mean_curvature
+        dat[[j]]$mean_profile_curvature[i] <- terrain_res$mean_profile_curvature
+        dat[[j]]$mean_plan_curvature[i] <- terrain_res$mean_plan_curvature
+      }
+    } else if (j == 2) {
+      for (i in 1:nrow(dat[[j]])) {
+        if (dat[[j]]$fac[i] == 1) {
+          reef <- ras_clip_128
+        } else {
+          reef <- aggregate(ras_clip_128, fac = dat[[j]]$fac[i], fun = mean, expand = FALSE, na.rm = FALSE)
+        }
+        reef_g <- as(reef, "SpatialGridDataFrame")
+        terrain_res <- terrain_fun(reef, resolution)
+        dat[[j]]$s_area[i] <- surfaceArea(reef_g)
+        dat[[j]]$area[i] <- sum(!is.na(reef_g@data)) * (dat[[j]]$fac[i] * 0.01) ^ 2
+        dat[[j]]$max_height[i] <- max(reef_g@data[[1]], na.rm = TRUE)
+        dat[[j]]$min_height[i] <- min(reef_g@data[[1]], na.rm = TRUE)
+        dat[[j]]$height_std[i] <- sd(reef_g@data[[1]], na.rm = TRUE)
+        dat[[j]]$mean_slope[i] <- terrain_res$mean_slope
+        dat[[j]]$mean_aspect[i] <- terrain_res$mean_aspect
+        dat[[j]]$circular_mean_aspect[i] <- terrain_res$circular_mean_aspect
+        dat[[j]]$mean_curvature[i] <- terrain_res$mean_curvature
+        dat[[j]]$mean_profile_curvature[i] <- terrain_res$mean_profile_curvature
+        dat[[j]]$mean_plan_curvature[i] <- terrain_res$mean_plan_curvature      }
+    } else {
+      break
+    }
+  }
+  
+  p64 <- ggplot(dat[[1]], aes(x = log(fac * 0.01), y = log(s_area))) +
+    geom_point() +
+    geom_smooth(method = "lm", se = F)
+  
+  p128 <- ggplot(dat[[2]], aes(x = log(fac * 0.01), y = log(s_area))) +
+    geom_point() +
+    geom_smooth(method = "lm", se = F)
+  
+  plot(p64)
+  plot(p128)
+  
+  d64 <- lm(log(s_area/area) ~ log(fac * 0.01), data = dat[[1]])
+  slope64 <- coef(d64)[[2]]
+  fd64 <- 2 - slope64
+  
+  d128 <- lm(log(s_area/area) ~ log(fac * 0.01), data = dat[[2]])
+  slope128 <- coef(d128)[[2]]
+  fd128 <- 2 - slope128
+  
+  rugosity64 <- dat[[1]]$s_area[1]/dat[[1]]$area[1]
+  
+  planerS64 <- dat[[1]]$area[1]
+  planerS128 <- dat[[2]]$area[1]
+  
+  max_h <- dat[[1]]$max_height[1]
+  min_h <- dat[[1]]$min_height[1]
+  diff_h <- max_h - min_h
+  sd_h <- dat[[1]]$height_std[1]
+  
+  mean_slope <- dat[[1]]$mean_slope[1]
+  mean_aspect <- dat[[1]]$mean_aspect[1]
+  circular_mean_aspect <- dat[[1]]$circular_mean_aspect[1]
+  mean_curvature <- dat[[1]]$mean_curvature[1]
+  mean_profile_curvature <- dat[[1]]$mean_profile_curvature[1]
+  mean_plan_curvature <- dat[[1]]$mean_plan_curvature[1]
+ 
+  temp <- data.frame(file_name = file_names[k], fd64 = fd64, fd128 = fd128,
+                     planerS64 = planerS64, planerS128 = planerS128,
+                     rugosity = rugosity64, max_h = max_h, min_h = min_h,
+                     diff_h = diff_h, sd_h = sd_h, 
+                     mean_slope = mean_slope, mean_aspect = mean_aspect, 
+                     circular_mean_aspect = circular_mean_aspect, 
+                     mean_curvature = mean_curvature, 
+                     mean_profile_curvature = mean_profile_curvature, 
+                     mean_plan_curvature = mean_plan_curvature)
+  
+  hab_data <- rbind(hab_data, temp)
+  
+}
 
-rugosity <- dat[[1]]$s_area[1]/dat[[1]]$area[1]
-rugosity
-
-max_h <- dat[[1]]$max_height[1]
-min_h <- dat[[1]]$min_height[1]
-diff_h <- max_h - min_h
-sd_h <- dat[[1]]$height_std[1]
-
-fd64; fd128; rugosity; max_h; min_h; diff_h; sd_h
+write.csv(hab_data, "habitat_complexity.csv", row.names = FALSE)
