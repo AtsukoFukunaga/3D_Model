@@ -8,18 +8,22 @@ terrain_fun <- function(data, cell_size) {
   d0 <- as.matrix(data)
   da <-  cbind(matrix(NA, nrow = nrow(d0), ncol = 1), 
                rbind(matrix(NA, nrow = 1, ncol = ncol(d0) - 1), 
-                     d0[1 : (nrow(d0) - 1), 1 : (ncol(d0) - 1)]))
-  db <- rbind(matrix(NA, nrow = 1, ncol = ncol(d0)), d0[1 : (nrow(d0) - 1), ])
+                     matrix(d0[1 : (nrow(d0) - 1), 1 : (ncol(d0) - 1)], nrow = nrow(d0) - 1, ncol = ncol(d0) - 1)))
+  db <- rbind(matrix(NA, nrow = 1, ncol = ncol(d0)), 
+              matrix(d0[1 : (nrow(d0) - 1), ], nrow = nrow(d0) - 1, ncol = ncol(d0)))
   dc <- cbind(rbind(matrix(NA, nrow = 1, ncol = ncol(d0) - 1), 
-                    d0[1 : (nrow(d0) - 1), 2 : ncol(d0)]),
+                    matrix(d0[1 : (nrow(d0) - 1), 2 : ncol(d0)], nrow = nrow(d0) - 1, ncol = ncol(d0) - 1)),
               matrix(NA, nrow = nrow(d0), ncol = 1))
-  dd <- cbind(matrix(NA, nrow = nrow(d0), ncol = 1), d0[, 1 : (ncol(d0) - 1)])
-  df <- cbind(d0[, 2 : ncol(d0)], matrix(NA, nrow = nrow(d0), ncol = 1))
+  dd <- cbind(matrix(NA, nrow = nrow(d0), ncol = 1), 
+              matrix(d0[, 1 : (ncol(d0) - 1)], nrow = nrow(d0), ncol = ncol(d0) -1))
+  df <- cbind(matrix(d0[, 2 : ncol(d0)], nrow = nrow(d0), ncol = ncol(d0) - 1), 
+              matrix(NA, nrow = nrow(d0), ncol = 1))
   dg <- cbind(matrix(NA, nrow = nrow(d0), ncol = 1), 
-              rbind(d0[2 : nrow(d0), 1 : (ncol(d0) - 1)], 
+              rbind(matrix(d0[2 : nrow(d0), 1 : (ncol(d0) - 1)], nrow = nrow(d0) - 1, ncol = ncol(d0) - 1), 
                     matrix(NA, nrow = 1, ncol = ncol(d0) - 1)))
-  dh <- rbind(d0[2 : nrow(d0), ], matrix(NA, nrow = 1, ncol = ncol(d0)))
-  di <- cbind(rbind(d0[2 : nrow(d0), 2 : ncol(d0)], 
+  dh <- rbind(matrix(d0[2 : nrow(d0), ], nrow = nrow(d0) - 1, ncol = ncol(d0)), 
+              matrix(NA, nrow = 1, ncol = ncol(d0)))
+  di <- cbind(rbind(matrix(d0[2 : nrow(d0), 2 : ncol(d0)], nrow = nrow(d0) - 1, ncol = ncol(d0) - 1), 
                     matrix(NA, nrow = 1, ncol = (ncol(d0) - 1))), 
               matrix(NA, nrow = nrow(d0), ncol = 1))
   
