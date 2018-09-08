@@ -106,6 +106,7 @@ file_suf <- "_DEM_1cm.tif"
 
 files <- paste(file_path, file_names, file_suf, sep = "")
 resolution <- 0.01  # DEM resolution = 1cm
+return_resolution_factor <- 1  # resolution factor for return values, use 1, 2, 4, 8, 16, 32, 64. 1 for 1 cm, 2 for 2 cm etc.
                 
 hab_data <- data.frame(file_name = character(0), fd64 = numeric(0), fd128 = numeric(0),
                        planerS64 = numeric(0), planerS128 = numeric(0),
@@ -199,8 +200,8 @@ for (k in 1:length(files)) {
     geom_point() +
     geom_smooth(method = "lm", se = F)
   
-  plot(p64)
-  plot(p128)
+  #plot(p64)
+  #plot(p128)
   
   d64 <- lm(log(s_area/area) ~ log(fac * 0.01), data = dat[[1]])
   slope64 <- coef(d64)[[2]]
@@ -210,22 +211,24 @@ for (k in 1:length(files)) {
   slope128 <- coef(d128)[[2]]
   fd128 <- 2 - slope128
   
-  rugosity64 <- dat[[1]]$s_area[1]/dat[[1]]$area[1]
+  fac <- which(dat[[1]]$fac == return_resolution_factor)
   
-  planerS64 <- dat[[1]]$area[1]
-  planerS128 <- dat[[2]]$area[1]
+  rugosity64 <- dat[[1]]$s_area[fac]/dat[[1]]$area[fac]
   
-  max_h <- dat[[1]]$max_height[1]
-  min_h <- dat[[1]]$min_height[1]
+  planerS64 <- dat[[1]]$area[fac]
+  planerS128 <- dat[[2]]$area[fac]
+  
+  max_h <- dat[[1]]$max_height[fac]
+  min_h <- dat[[1]]$min_height[fac]
   diff_h <- max_h - min_h
-  sd_h <- dat[[1]]$height_std[1]
+  sd_h <- dat[[1]]$height_std[fac]
   
-  mean_slope <- dat[[1]]$mean_slope[1]
-  mean_aspect <- dat[[1]]$mean_aspect[1]
-  circular_mean_aspect <- dat[[1]]$circular_mean_aspect[1]
-  mean_curvature <- dat[[1]]$mean_curvature[1]
-  mean_profile_curvature <- dat[[1]]$mean_profile_curvature[1]
-  mean_plan_curvature <- dat[[1]]$mean_plan_curvature[1]
+  mean_slope <- dat[[1]]$mean_slope[fac]
+  mean_aspect <- dat[[1]]$mean_aspect[fac]
+  circular_mean_aspect <- dat[[1]]$circular_mean_aspect[fac]
+  mean_curvature <- dat[[1]]$mean_curvature[fac]
+  mean_profile_curvature <- dat[[1]]$mean_profile_curvature[fac]
+  mean_plan_curvature <- dat[[1]]$mean_plan_curvature[fac]
  
   temp <- data.frame(file_name = file_names[k], fd64 = fd64, fd128 = fd128,
                      planerS64 = planerS64, planerS128 = planerS128,
