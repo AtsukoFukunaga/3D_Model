@@ -121,6 +121,8 @@ hab_data <- data.frame(file_name = character(0), fd64 = numeric(0), fd128 = nume
 for (k in 1:length(files)) {
   ras <- raster(files[k])
   
+  print(file_names[k])
+  
   extent64 <- aggregate(ras, fac = 64, fun = mean, expand = FALSE, na.rm = FALSE)
   extent64_uniform <- extent64 > -Inf
   extent64_polygon <- rasterToPolygons(extent64_uniform, dissolve = TRUE)
@@ -148,6 +150,9 @@ for (k in 1:length(files)) {
   
     if (j == 1) {
       for (i in 1:nrow(dat[[j]])) {
+        
+        print(dat[[j]]$fac[i])
+        
         if (dat[[j]]$fac[i] == 1) {
           reef <- ras_clip_64
         } else {
@@ -169,6 +174,9 @@ for (k in 1:length(files)) {
       }
     } else if (j == 2) {
       for (i in 1:nrow(dat[[j]])) {
+        
+        print(dat[[j]]$fac[i])
+        
         if (dat[[j]]$fac[i] == 1) {
           reef <- ras_clip_128
         } else {
