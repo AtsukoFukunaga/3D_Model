@@ -86,7 +86,7 @@ terrain_fun <- function(data, cell_size) {
     plan_curv <- -2 * ((coefD * coefH ^ 2 + coefE * coefG ^ 2 - coefF * coefG * coefH) / 
                         (coefG ^ 2 + coefH ^ 2))
     mean_plan_curv <- mean(plan_curv, na.rm = TRUE)
-    
+
     terrain_list <- list(mean_slope, mean_aspect, mean_aspect_2, mean_curvature, 
                          mean_prof_curv, mean_plan_curv)
     names(terrain_list) <- c("mean_slope", "mean_aspect", "circular_mean_aspect", 
@@ -220,8 +220,8 @@ for (k in 1:length(files)) {
   # p128
   # dev.off()
   
-  #plot(p64)
-  #plot(p128)
+  # plot(p64)
+  # plot(p128)
   
   d64 <- lm(log(s_area/area) ~ log(fac * 0.01), data = dat[[1]])
   slope64 <- coef(d64)[[2]]
@@ -249,7 +249,7 @@ for (k in 1:length(files)) {
   mean_curvature <- dat[[1]]$mean_curvature[fac]
   mean_profile_curvature <- dat[[1]]$mean_profile_curvature[fac]
   mean_plan_curvature <- dat[[1]]$mean_plan_curvature[fac]
-  
+
   temp <- data.frame(file_name = file_names[k], fd64 = fd64, fd128 = fd128,
                      planerS64 = planerS64, planerS128 = planerS128,
                      rugosity = rugosity64, max_h = max_h, min_h = min_h,
