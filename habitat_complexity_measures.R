@@ -73,8 +73,8 @@ terrain_fun <- function(data, cell_size) {
     coefD <- (((dd + df) / 2) - d0) / (cell_size ^ 2)
     coefE <- (((db + dh) / 2) - d0) / (cell_size ^ 2)
     coefF <- (dc + dg -da - di) / (4 * (cell_size ^ 2))
-    coefG = (df - dd) / 2 * cell_size
-    coefH = (db - dh) / 2 * cell_size
+    coefG <- (df - dd) / 2 * cell_size
+    coefH <- (db - dh) / 2 * cell_size
     
     curvature <- (-2 * (coefD + coefE)) * 100
     mean_curvature <- mean(curvature, na.rm = TRUE)
