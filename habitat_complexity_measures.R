@@ -100,15 +100,17 @@ terrain_fun <- function(data, cell_size) {
 
 ########## process files #########
 
-file_path <- "~/Habitat_complexity_test/DEMs/"
-file_names <- c("LIS_4254")
-file_suf <- "_1_1.tif"
+file_path <- "~/R_wd/HA_17_04/FFS/"
+file_names <- c("FFS_4164")
+file_suf <- "_DEM_1cm.tif"
 
 files <- paste(file_path, file_names, file_suf, sep = "")
 resolution <- 0.01  # DEM resolution = 1cm
-return_resolution_factor <- 1  # resolution factor for return values, use 1, 2, 4, 8, 16, 32, 64. 1 for 1 cm, 2 for 2 cm etc.
+return_resolution_factor <- 1  # aggregation factor for return values, use 1, 2, 4, 8, 16, 32, 64. 1 for 1 cm, 2 for 2 cm etc.
 
 hab_data <- data.frame(file_name = character(0), fd64 = numeric(0), fd128 = numeric(0),
+                       orig_area = numeric(0), 
+                       surface64 = numeric(0), surface128 = numeric(0),
                        planerS64 = numeric(0), planerS128 = numeric(0),
                        rugosity = numeric(0), max_h = numeric(0), min_h = numeric(0),
                        diff_h = numeric(0), sd_h = numeric(0),
@@ -120,6 +122,8 @@ hab_data <- data.frame(file_name = character(0), fd64 = numeric(0), fd128 = nume
 
 for (k in 1:length(files)) {
   ras <- raster(files[k])
+  ras_g <- as(ras, "SpatialGridDataFrame")
+  orig_area <- sum(!is.na(ras_g@data)) * resolution ^ 2
   
   print(file_names[k])
   
@@ -161,7 +165,7 @@ for (k in 1:length(files)) {
         reef_g <- as(reef, "SpatialGridDataFrame")
         terrain_res <- terrain_fun(reef, resolution)
         dat[[j]]$s_area[i] <- surfaceArea(reef_g)
-        dat[[j]]$area[i] <- sum(!is.na(reef_g@data)) * (dat[[j]]$fac[i] * 0.01) ^ 2
+        dat[[j]]$area[i] <- sum(!is.na(reef_g@data)) * (dat[[j]]$fac[i] * resolution) ^ 2
         dat[[j]]$max_height[i] <- max(reef_g@data[[1]], na.rm = TRUE)
         dat[[j]]$min_height[i] <- min(reef_g@data[[1]], na.rm = TRUE)
         dat[[j]]$height_std[i] <- sd(reef_g@data[[1]], na.rm = TRUE)
@@ -185,7 +189,7 @@ for (k in 1:length(files)) {
         reef_g <- as(reef, "SpatialGridDataFrame")
         terrain_res <- terrain_fun(reef, resolution)
         dat[[j]]$s_area[i] <- surfaceArea(reef_g)
-        dat[[j]]$area[i] <- sum(!is.na(reef_g@data)) * (dat[[j]]$fac[i] * 0.01) ^ 2
+        dat[[j]]$area[i] <- sum(!is.na(reef_g@data)) * (dat[[j]]$fac[i] * resolution) ^ 2
         dat[[j]]$max_height[i] <- max(reef_g@data[[1]], na.rm = TRUE)
         dat[[j]]$min_height[i] <- min(reef_g@data[[1]], na.rm = TRUE)
         dat[[j]]$height_std[i] <- sd(reef_g@data[[1]], na.rm = TRUE)
@@ -233,10 +237,13 @@ for (k in 1:length(files)) {
   
   fac <- which(dat[[1]]$fac == return_resolution_factor)
   
-  rugosity64 <- dat[[1]]$s_area[fac]/dat[[1]]$area[fac]
+  surface64 <- dat[[1]]$s_area[fac]
+  surface128 <- dat[[2]]$s_area[fac]
   
   planerS64 <- dat[[1]]$area[fac]
   planerS128 <- dat[[2]]$area[fac]
+  
+  rugosity64 <- dat[[1]]$s_area[fac]/dat[[1]]$area[fac]
   
   max_h <- dat[[1]]$max_height[fac]
   min_h <- dat[[1]]$min_height[fac]
@@ -251,6 +258,8 @@ for (k in 1:length(files)) {
   mean_plan_curvature <- dat[[1]]$mean_plan_curvature[fac]
 
   temp <- data.frame(file_name = file_names[k], fd64 = fd64, fd128 = fd128,
+                     orig_area = orig_area, 
+                     surface64 = surface64, surface128 = surface128,
                      planerS64 = planerS64, planerS128 = planerS128,
                      rugosity = rugosity64, max_h = max_h, min_h = min_h,
                      diff_h = diff_h, sd_h = sd_h, 
