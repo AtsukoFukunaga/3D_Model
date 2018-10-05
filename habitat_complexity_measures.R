@@ -98,16 +98,11 @@ terrain_fun <- function(data, cell_size) {
 }
 
 
-########## process files #########
+########## analysis prep #########
+resolution <- 0.01  # enter DEM resolution (i.e. 0.01 for 1cm)
+return_resolution_factor <- 1  # set aggregation factor at which all habitat metrics are obtained.  Use 1, 2, 4, 8, 16, 32, 64.
 
-file_path <- "~/R_wd/HA_17_04/FFS/"
-file_names <- c("FFS_4164")
-file_suf <- "_DEM_1cm.tif"
-
-files <- paste(file_path, file_names, file_suf, sep = "")
-resolution <- 0.01  # DEM resolution = 1cm
-return_resolution_factor <- 1  # aggregation factor for return values, use 1, 2, 4, 8, 16, 32, 64. 1 for 1 cm, 2 for 2 cm etc.
-
+### output data frame
 hab_data <- data.frame(file_name = character(0), fd64 = numeric(0), fd128 = numeric(0),
                        orig_area = numeric(0), 
                        surface64 = numeric(0), surface128 = numeric(0),
@@ -119,6 +114,14 @@ hab_data <- data.frame(file_name = character(0), fd64 = numeric(0), fd128 = nume
                        mean_curvature = numeric(0), 
                        mean_profile_curvature = numeric(0), 
                        mean_plan_curvature = numeric(0))
+
+########## process files #########
+
+file_path <- "~/R_wd/HA_17_04/LAY/"
+file_names <- c("LAY_5046")
+file_suf <- "_DEM_1cm.tif"
+
+files <- paste(file_path, file_names, file_suf, sep = "")
 
 for (k in 1:length(files)) {
   ras <- raster(files[k])
@@ -207,25 +210,21 @@ for (k in 1:length(files)) {
   p64 <- ggplot(dat[[1]], aes(x = log(fac * 0.01), y = log(s_area))) +
     geom_point() +
     geom_smooth(method = "lm", se = F) +
-    xlim(c(-5, 0)) + ylim(c(4.4, 6.5)) + 
-    labs(x = expression(paste("log(", delta, ")")),
-         y = expression(paste("logS(", delta, ")")))
-  
-  p128 <- ggplot(dat[[2]], aes(x = log(fac * 0.01), y = log(s_area))) +
-    geom_point() +
-    geom_smooth(method = "lm", se = F) + 
-    xlim(c(-5, 1)) + ylim(c(4.4, 6.5)) + 
+    xlim(c(-5, 1)) + ylim(c(4, 6)) + 
     labs(x = expression(paste("log(", delta, ")")),
          y = expression(paste("logS(", delta, ")"))) +
     theme_bw()
   
-  # png("FD_plot", height = 1.2, width = 1.2, units = 'in', 
-  #     type = "windows", res = 300)
-  # p128
-  # dev.off()
+  p128 <- ggplot(dat[[2]], aes(x = log(fac * 0.01), y = log(s_area))) +
+    geom_point() +
+    geom_smooth(method = "lm", se = F) + 
+    xlim(c(-5, 1)) + ylim(c(4, 6)) + 
+    labs(x = expression(paste("log(", delta, ")")),
+         y = expression(paste("logS(", delta, ")"))) +
+    theme_bw()
   
-  # plot(p64)
-  # plot(p128)
+  plot(p64)
+  plot(p128)
   
   d64 <- lm(log(s_area/area) ~ log(fac * 0.01), data = dat[[1]])
   slope64 <- coef(d64)[[2]]
@@ -273,4 +272,5 @@ for (k in 1:length(files)) {
   
 }
 
+########## export output data frame #########
 write.csv(hab_data, "habitat_complexity.csv", row.names = FALSE)
