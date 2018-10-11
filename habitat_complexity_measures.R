@@ -7,8 +7,8 @@ library(ggplot2)
 terrain_fun <- function(data, cell_size) {
   d0 <- as.matrix(data)
   if (ncol(d0) == 1 | nrow(d0) == 1) {
-    terrain_list <- list(NA, NA, NA, NA, NA, NA)
-    names(terrain_list) <- c("mean_slope", "mean_aspect", "circular_mean_aspect", 
+    terrain_list <- list(NA, NA, NA, NA, NA, NA, NA)
+    names(terrain_list) <- c("mean_slope", "mean_slope2", "mean_aspect", "circular_mean_aspect", 
                              "mean_curvature", "mean_profile_curvature", "mean_plan_curvature")
   } else {
     da <-  cbind(matrix(NA, nrow = nrow(d0), ncol = 1), 
@@ -76,20 +76,27 @@ terrain_fun <- function(data, cell_size) {
     coefG <- (df - dd) / 2 * cell_size
     coefH <- (db - dh) / 2 * cell_size
     
-    curvature <- (-2 * (coefD + coefE)) * 100
+    curvature <- 2 * (coefD + coefE)
     mean_curvature <- mean(curvature, na.rm = TRUE)
     
-    prof_curv <- 2 * ((coefD * coefG ^ 2 + coefE * coefH ^ 2 + coefF * coefG * coefH) / 
+    prof_curv <- -2 * ((coefD * coefG ^ 2 + coefE * coefH ^ 2 + coefF * coefG * coefH) / 
                          (coefG ^ 2 + coefH ^ 2))
     mean_prof_curv <- mean(prof_curv, na.rm = TRUE)
     
-    plan_curv <- -2 * ((coefD * coefH ^ 2 + coefE * coefG ^ 2 - coefF * coefG * coefH) / 
+    plan_curv <- 2 * ((coefD * coefH ^ 2 + coefE * coefG ^ 2 - coefF * coefG * coefH) / 
                         (coefG ^ 2 + coefH ^ 2))
     mean_plan_curv <- mean(plan_curv, na.rm = TRUE)
+    
+    ## slope 2
+    
+    slope2 <- sqrt(coefG ^ 2 + coefH ^ 2)
+    mean_slope2 <- mean(slope2, na.rm = TRUE)
+    
+    ## output list
 
-    terrain_list <- list(mean_slope, mean_aspect, mean_aspect_2, mean_curvature, 
+    terrain_list <- list(mean_slope, mean_slope2, mean_aspect, mean_aspect_2, mean_curvature, 
                          mean_prof_curv, mean_plan_curv)
-    names(terrain_list) <- c("mean_slope", "mean_aspect", "circular_mean_aspect", 
+    names(terrain_list) <- c("mean_slope", "mean_slope2", "mean_aspect", "circular_mean_aspect", 
                              "mean_curvature", "mean_profile_curvature", "mean_plan_curvature")
   }
   
@@ -109,16 +116,19 @@ hab_data <- data.frame(file_name = character(0), fd64 = numeric(0), fd128 = nume
                        planerS64 = numeric(0), planerS128 = numeric(0),
                        rugosity = numeric(0), max_h = numeric(0), min_h = numeric(0),
                        diff_h = numeric(0), sd_h = numeric(0),
-                       mean_slope = numeric(0), mean_aspect = numeric(0), 
-                       circular_mean_aspect = numeric(0), 
+                       mean_slope = numeric(0), mean_slope2 = numeric(0), 
+                       mean_aspect = numeric(0), circular_mean_aspect = numeric(0), 
                        mean_curvature = numeric(0), 
                        mean_profile_curvature = numeric(0), 
                        mean_plan_curvature = numeric(0))
 
 ########## process files #########
 
-file_path <- "~/R_wd/HA_17_04/LAY/"
-file_names <- c("LAY_5046")
+file_path <- "~/R_wd/HA_17_04/FFS/"
+file_names <- c("FFS_508", "FFS_542", "FFS_552", "FFS_4164", "FFS_4165", "FFS_4167", "FFS_4176", "FFS_4185", 
+                "FFS_4187", "FFS_4189", "FFS_4190", "FFS_4191", "FFS_4196", "FFS_4201", "FFS_4205", "FFS_4215", 
+                "FFS_4223", "FFS_4224", "FFS_4230", "FFS_4232", "FFS_4271", "FFS_4280", "FFS_4293", "FFS_4294", 
+                "FFS_4295", "FFS_4297", "FFS_4300", "FFS_4339", "FFS_4342")
 file_suf <- "_DEM_1cm.tif"
 
 files <- paste(file_path, file_names, file_suf, sep = "")
@@ -143,15 +153,14 @@ for (k in 1:length(files)) {
   
   dat64 <- data.frame(fac = c(1, 2, 4, 8, 16, 32, 64), s_area = NA, area = NA, 
                       max_height = NA, min_height = NA, height_std = NA,
-                      mean_slope = NA, mean_aspect = NA, circular_mean_aspect = NA, 
+                      mean_slope = NA, mean_slope2 = NA, mean_aspect = NA, circular_mean_aspect = NA, 
                       mean_curvature = NA, mean_profile_curvature = NA, mean_plan_curvature = NA)
   dat128 <- data.frame(fac = c(1, 2, 4, 8, 16, 32, 64, 128), s_area = NA, area = NA, 
                        max_height = NA, min_height = NA, height_std = NA,
-                       mean_slope = NA, mean_aspect = NA, circular_mean_aspect = NA, 
+                       mean_slope = NA, mean_slope2 = NA, mean_aspect = NA, circular_mean_aspect = NA, 
                        mean_curvature = NA, mean_profile_curvature = NA, mean_plan_curvature = NA)
   
   dat <- list(dat64, dat128)
-  
   
   for (j in 1:length(dat)) {
     
@@ -173,6 +182,7 @@ for (k in 1:length(files)) {
         dat[[j]]$min_height[i] <- min(reef_g@data[[1]], na.rm = TRUE)
         dat[[j]]$height_std[i] <- sd(reef_g@data[[1]], na.rm = TRUE)
         dat[[j]]$mean_slope[i] <- terrain_res$mean_slope
+        dat[[j]]$mean_slope2[i] <- terrain_res$mean_slope2
         dat[[j]]$mean_aspect[i] <- terrain_res$mean_aspect
         dat[[j]]$circular_mean_aspect[i] <- terrain_res$circular_mean_aspect
         dat[[j]]$mean_curvature[i] <- terrain_res$mean_curvature
@@ -197,6 +207,7 @@ for (k in 1:length(files)) {
         dat[[j]]$min_height[i] <- min(reef_g@data[[1]], na.rm = TRUE)
         dat[[j]]$height_std[i] <- sd(reef_g@data[[1]], na.rm = TRUE)
         dat[[j]]$mean_slope[i] <- terrain_res$mean_slope
+        dat[[j]]$mean_slope2[i] <- terrain_res$mean_slope2
         dat[[j]]$mean_aspect[i] <- terrain_res$mean_aspect
         dat[[j]]$circular_mean_aspect[i] <- terrain_res$circular_mean_aspect
         dat[[j]]$mean_curvature[i] <- terrain_res$mean_curvature
@@ -250,6 +261,7 @@ for (k in 1:length(files)) {
   sd_h <- dat[[1]]$height_std[fac]
   
   mean_slope <- dat[[1]]$mean_slope[fac]
+  mean_slope2 <- dat[[1]]$mean_slope2[fac]
   mean_aspect <- dat[[1]]$mean_aspect[fac]
   circular_mean_aspect <- dat[[1]]$circular_mean_aspect[fac]
   mean_curvature <- dat[[1]]$mean_curvature[fac]
@@ -262,7 +274,8 @@ for (k in 1:length(files)) {
                      planerS64 = planerS64, planerS128 = planerS128,
                      rugosity = rugosity64, max_h = max_h, min_h = min_h,
                      diff_h = diff_h, sd_h = sd_h, 
-                     mean_slope = mean_slope, mean_aspect = mean_aspect, 
+                     mean_slope = mean_slope, mean_slope2 = mean_slope2, 
+                     mean_aspect = mean_aspect, 
                      circular_mean_aspect = circular_mean_aspect, 
                      mean_curvature = mean_curvature, 
                      mean_profile_curvature = mean_profile_curvature, 
