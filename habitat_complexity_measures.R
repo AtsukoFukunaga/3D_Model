@@ -87,7 +87,7 @@ terrain_fun <- function(data, cell_size) {
                         (coefG ^ 2 + coefH ^ 2))
     mean_plan_curv <- mean(plan_curv, na.rm = TRUE)
     
-    ## slope 2
+    ## slope 2 (based on Zevenbergen & Thorne 1987)
     
     slope2 <- sqrt(coefG ^ 2 + coefH ^ 2)
     mean_slope2 <- mean(slope2, na.rm = TRUE)
@@ -106,10 +106,10 @@ terrain_fun <- function(data, cell_size) {
 
 
 ########## analysis prep #########
-resolution <- 0.01  # enter DEM resolution (i.e. 0.01 for 1cm)
+resolution <- 0.01  # enter DEM resolution in meter
 return_resolution_factor <- 1  # set aggregation factor at which all habitat metrics are obtained.  Use 1, 2, 4, 8, 16, 32, 64.
 
-### output data frame
+### initialize output data frame
 hab_data <- data.frame(file_name = character(0), fd64 = numeric(0), fd128 = numeric(0),
                        orig_area = numeric(0), 
                        surface64 = numeric(0), surface128 = numeric(0),
@@ -124,14 +124,12 @@ hab_data <- data.frame(file_name = character(0), fd64 = numeric(0), fd128 = nume
 
 ########## process files #########
 
-file_path <- "~/R_wd/HA_17_04/FFS/"
-file_names <- c("FFS_508", "FFS_542", "FFS_552", "FFS_4164", "FFS_4165", "FFS_4167", "FFS_4176", "FFS_4185", 
-                "FFS_4187", "FFS_4189", "FFS_4190", "FFS_4191", "FFS_4196", "FFS_4201", "FFS_4205", "FFS_4215", 
-                "FFS_4223", "FFS_4224", "FFS_4230", "FFS_4232", "FFS_4271", "FFS_4280", "FFS_4293", "FFS_4294", 
-                "FFS_4295", "FFS_4297", "FFS_4300", "FFS_4339", "FFS_4342")
-file_suf <- "_DEM_1cm.tif"
+file_path <- "~/R_wd/HA_17_04/KUR/"  # enter an appropriate path to the folder containing DEMs
+file_names <- c("KUR_4059", "KUR_4065", "KUR_4068", "KUR_4076", "KUR_4080", 
+                "KUR_4081")  # enter file (site) names
+file_suf <- "_DEM_1cm.tif"  # enter any suffix common in DEM file names
 
-files <- paste(file_path, file_names, file_suf, sep = "")
+files <- paste(file_path, file_names, file_suf, sep = "")  # vector of pathes to the DEM files
 
 for (k in 1:length(files)) {
   ras <- raster(files[k])
@@ -224,6 +222,7 @@ for (k in 1:length(files)) {
     xlim(c(-5, 1)) + ylim(c(4, 6)) + 
     labs(x = expression(paste("log(", delta, ")")),
          y = expression(paste("logS(", delta, ")"))) +
+    ggtitle(file_names[k])
     theme_bw()
   
   p128 <- ggplot(dat[[2]], aes(x = log(fac * 0.01), y = log(s_area))) +
@@ -232,6 +231,7 @@ for (k in 1:length(files)) {
     xlim(c(-5, 1)) + ylim(c(4, 6)) + 
     labs(x = expression(paste("log(", delta, ")")),
          y = expression(paste("logS(", delta, ")"))) +
+    ggtitle(file_names[k])
     theme_bw()
   
   plot(p64)
